@@ -2127,7 +2127,7 @@ C_OBJ := $(filter-out $(ASM_OBJ),$(OBJECTS))
 
 $(C_OBJ): %.o: %.c GIT-CFLAGS $(missing_dep_dirs)
 	$(QUIET_CC)$(CC) -o $*.o -c $(dep_args) $(ALL_CFLAGS) $(EXTRA_CPPFLAGS) $<
-$(ASM_OBJ): %.o: %.S GIT-CFLAGS $(missing_dep_dirs)
+$(ASM_OBJ): %.o: %.s GIT-CFLAGS $(missing_dep_dirs)
 	$(QUIET_CC)$(CC) -o $*.o -c $(dep_args) $(ALL_CFLAGS) $(EXTRA_CPPFLAGS) $<
 
 %.s: %.c GIT-CFLAGS FORCE
@@ -2175,6 +2175,9 @@ gettext.sp gettext.s gettext.o: EXTRA_CPPFLAGS = \
 
 http-push.sp http.sp http-walker.sp remote-curl.sp imap-send.sp: SPARSE_FLAGS += \
 	-DCURL_DISABLE_TYPECHECK
+
+ppc/sha1ppc.s: ppc/sha1ppc.in.S
+	$(QUIET_CC)$(CC) -c -E $< | $(PERL_PATH) ppc/gen_sha1ppc.pl > $@
 
 ifdef NO_EXPAT
 http-walker.sp http-walker.s http-walker.o: EXTRA_CPPFLAGS = -DNO_EXPAT

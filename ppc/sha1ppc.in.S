@@ -32,14 +32,14 @@
  * We use registers 6 - 10 for this.  (Registers 27 - 31 hold
  * the previous values.)
  */
-#define RA(t)	(((t)+4)%5+6)
-#define RB(t)	(((t)+3)%5+6)
-#define RC(t)	(((t)+2)%5+6)
-#define RD(t)	(((t)+1)%5+6)
-#define RE(t)	(((t)+0)%5+6)
+#define RA(t)	R[((t)+4)%5+6]
+#define RB(t)	R[((t)+3)%5+6]
+#define RC(t)	R[((t)+2)%5+6]
+#define RD(t)	R[((t)+1)%5+6]
+#define RE(t)	R[((t)+0)%5+6]
 
 /* We use registers 11 - 26 for the W values */
-#define W(t)	((t)%16+11)
+#define W(t)	R[(t)%16+11]
 
 /* Register 5 is used for the constant k */
 
@@ -86,7 +86,7 @@
 
 /* the initial loads. */
 #define LOADW(s) \
-	lwz	W(s),(s)*4(%r4)
+	lwz W(s),(s)*4(R[4])
 
 /*
  * Perform a step with F0, and load W(s).  Uses W(s) as a temporary
@@ -97,10 +97,10 @@
  * second line.)  Thus, two iterations take 7 cycles, 3.5 cycles per round.
  */
 #define STEPD0_LOAD(t,s) \
-add RE(t),RE(t),W(t); andc   %r0,RD(t),RB(t);  and    W(s),RC(t),RB(t); \
-add RE(t),RE(t),%r0;  rotlwi %r0,RA(t),5;      rotlwi RB(t),RB(t),30;   \
-add RE(t),RE(t),W(s); add    %r0,%r0,%r5;      lwz    W(s),(s)*4(%r4);  \
-add RE(t),RE(t),%r0
+add RE(t),RE(t),W(t); andc   R[0],RD(t),RB(t); and    W(s),RC(t),RB(t); \
+add RE(t),RE(t),R[0]; rotlwi R[0],RA(t),5;     rotlwi RB(t),RB(t),30;   \
+add RE(t),RE(t),W(s); add    R[0],R[0],R[5];   lwz    W(s),(s)*4(R[4]); \
+add RE(t),RE(t),R[0]
 
 /*
  * This is likewise awkward, 13 instructions.  However, it can also
@@ -108,28 +108,28 @@ add RE(t),RE(t),%r0
  * in 9 cycles, 4.5 cycles/round.
  */
 #define STEPD0_UPDATE(t,s,loadk...) \
-add RE(t),RE(t),W(t); andc   %r0,RD(t),RB(t); xor    W(s),W((s)-16),W((s)-3); \
-add RE(t),RE(t),%r0;  and    %r0,RC(t),RB(t); xor    W(s),W(s),W((s)-8);      \
-add RE(t),RE(t),%r0;  rotlwi %r0,RA(t),5;     xor    W(s),W(s),W((s)-14);     \
-add RE(t),RE(t),%r5;  loadk; rotlwi RB(t),RB(t),30;  rotlwi W(s),W(s),1;     \
-add RE(t),RE(t),%r0
+add RE(t),RE(t),W(t); andc   R[0],RD(t),RB(t); xor   W(s),W((s)-16),W((s)-3); \
+add RE(t),RE(t),R[0]; and    R[0],RC(t),RB(t); xor   W(s),W(s),W((s)-8);      \
+add RE(t),RE(t),R[0]; rotlwi R[0],RA(t),5;     xor   W(s),W(s),W((s)-14);     \
+add RE(t),RE(t),R[5]; loadk; rotlwi RB(t),RB(t),30;  rotlwi W(s),W(s),1;      \
+add RE(t),RE(t),R[0]
 
 /* Nicely optimal.  Conveniently, also the most common. */
 #define STEPD1_UPDATE(t,s,loadk...) \
-add RE(t),RE(t),W(t); xor    %r0,RD(t),RB(t); xor    W(s),W((s)-16),W((s)-3); \
-add RE(t),RE(t),%r5;  loadk; xor %r0,%r0,RC(t);  xor W(s),W(s),W((s)-8);      \
-add RE(t),RE(t),%r0;  rotlwi %r0,RA(t),5;     xor    W(s),W(s),W((s)-14);     \
-add RE(t),RE(t),%r0;  rotlwi RB(t),RB(t),30;  rotlwi W(s),W(s),1
+add RE(t),RE(t),W(t); xor    R[0],RD(t),RB(t);    xor W(s),W((s)-16),W((s)-3); \
+add RE(t),RE(t),R[5]; loadk; xor R[0],R[0],RC(t); xor W(s),W(s),W((s)-8);    \
+add RE(t),RE(t),R[0]; rotlwi R[0],RA(t),5;   xor    W(s),W(s),W((s)-14);  \
+add RE(t),RE(t),R[0]; rotlwi RB(t),RB(t),30; rotlwi W(s),W(s),1
 
 /*
  * The naked version, no UPDATE, for the last 4 rounds.  3 cycles per.
  * We could use W(s) as a temp register, but we don't need it.
  */
 #define STEPD1(t) \
-                        add   RE(t),RE(t),W(t); xor    %r0,RD(t),RB(t); \
-rotlwi RB(t),RB(t),30;  add   RE(t),RE(t),%r5;  xor    %r0,%r0,RC(t);   \
-add    RE(t),RE(t),%r0; rotlwi %r0,RA(t),5;     /* spare slot */        \
-add    RE(t),RE(t),%r0
+                        add   RE(t),RE(t),W(t); xor    R[0],RD(t),RB(t); \
+rotlwi RB(t),RB(t),30;  add   RE(t),RE(t),R[5]; xor    R[0],R[0],RC(t);   \
+add    RE(t),RE(t),R[0]; rotlwi R[0],RA(t),5;     /* spare slot */        \
+add    RE(t),RE(t),R[0]
 
 /*
  * 14 instructions, 5 cycles per.  The majority function is a bit
@@ -137,11 +137,11 @@ add    RE(t),RE(t),%r0
  * but it causes a 2-instruction delay, which triggers a stall.
  */
 #define STEPD2_UPDATE(t,s,loadk...) \
-add RE(t),RE(t),W(t); and    %r0,RD(t),RB(t); xor    W(s),W((s)-16),W((s)-3); \
-add RE(t),RE(t),%r0;  xor    %r0,RD(t),RB(t); xor    W(s),W(s),W((s)-8);      \
-add RE(t),RE(t),%r5;  loadk; and %r0,%r0,RC(t);  xor W(s),W(s),W((s)-14);     \
-add RE(t),RE(t),%r0;  rotlwi %r0,RA(t),5;     rotlwi W(s),W(s),1;             \
-add RE(t),RE(t),%r0;  rotlwi RB(t),RB(t),30
+add RE(t),RE(t),W(t); and    R[0],RD(t),RB(t); xor  W(s),W((s)-16),W((s)-3); \
+add RE(t),RE(t),R[0]; xor    R[0],RD(t),RB(t); xor  W(s),W(s),W((s)-8);      \
+add RE(t),RE(t),R[5]; loadk; and R[0],R[0],RC(t);  xor W(s),W(s),W((s)-14);  \
+add RE(t),RE(t),R[0]; rotlwi R[0],RA(t),5;     rotlwi W(s),W(s),1;           \
+add RE(t),RE(t),R[0]; rotlwi RB(t),RB(t),30
 
 #define STEP0_LOAD4(t,s)		\
 	STEPD0_LOAD(t,s);		\
@@ -164,61 +164,61 @@ add RE(t),RE(t),%r0;  rotlwi RB(t),RB(t),30
 
 	.globl	ppc_sha1_core
 ppc_sha1_core:
-	stwu	%r1,-80(%r1)
-	stmw	%r13,4(%r1)
+	stwu	R[1],-80(R[1])
+	stmw	R[13],4(R[1])
 
 	/* Load up A - E */
-	lmw	%r27,0(%r3)
+	lmw R[27],0(R[3])
 
-	mtctr	%r5
+	mtctr   R[5]
 
 1:
 	LOADW(0)
-	lis	%r5,0x5a82
-	mr	RE(0),%r31
+	lis R[5],0x5a82
+	mr	RE(0),R[31]
 	LOADW(1)
-	mr	RD(0),%r30
-	mr	RC(0),%r29
+	mr	RD(0),R[30]
+	mr	RC(0),R[29]
 	LOADW(2)
-	ori	%r5,%r5,0x7999	/* K0-19 */
-	mr	RB(0),%r28
+	ori R[5],R[5],0x7999    /* K0-19 */
+	mr  RB(0),R[28]
 	LOADW(3)
-	mr	RA(0),%r27
+	mr  RA(0),R[27]
 
 	STEP0_LOAD4(0, 4)
 	STEP0_LOAD4(4, 8)
 	STEP0_LOAD4(8, 12)
 	STEPUP4(D0, 12, 16,)
-	STEPUP4(D0, 16, 20, lis %r5,0x6ed9)
+	STEPUP4(D0, 16, 20, lis R[5],0x6ed9)
 
-	ori	%r5,%r5,0xeba1	/* K20-39 */
-	STEPUP20(D1, 20, 24, lis %r5,0x8f1b)
+	ori R[5],R[5],0xeba1    /* K20-39 */
+	STEPUP20(D1, 20, 24, lis R[5],0x8f1b)
 
-	ori	%r5,%r5,0xbcdc	/* K40-59 */
-	STEPUP20(D2, 40, 44, lis %r5,0xca62)
+	ori R[5],R[5],0xbcdc    /* K40-59 */
+	STEPUP20(D2, 40, 44, lis R[5],0xca62)
 
-	ori	%r5,%r5,0xc1d6	/* K60-79 */
+	ori R[5],R[5],0xc1d6    /* K60-79 */
 	STEPUP4(D1, 60, 64,)
 	STEPUP4(D1, 64, 68,)
 	STEPUP4(D1, 68, 72,)
 	STEPUP4(D1, 72, 76,)
-	addi	%r4,%r4,64
+	addi    R[4],R[4],64
 	STEPD1(76)
 	STEPD1(77)
 	STEPD1(78)
 	STEPD1(79)
 
 	/* Add results to original values */
-	add	%r31,%r31,RE(0)
-	add	%r30,%r30,RD(0)
-	add	%r29,%r29,RC(0)
-	add	%r28,%r28,RB(0)
-	add	%r27,%r27,RA(0)
+	add R[31],R[31],RE(0)
+	add R[30],R[30],RD(0)
+	add R[29],R[29],RC(0)
+	add R[28],R[28],RB(0)
+	add R[27],R[27],RA(0)
 
 	bdnz	1b
 
 	/* Save final hash, restore registers, and return */
-	stmw	%r27,0(%r3)
-	lmw	%r13,4(%r1)
-	addi	%r1,%r1,80
+	stmw    R[27],0(R[3])
+	lmw R[13],4(R[1])
+	addi    R[1],R[1],80
 	blr
